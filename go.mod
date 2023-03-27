@@ -1,5 +1,5 @@
 // TODO: update the module path below to match your own repository
-module github.com/hashicorp/nomad-skeleton-driver-plugin
+module github.com/Vaelatern/nomad-plugin-buildah-ci
 
 go 1.19
 

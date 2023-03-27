@@ -5,7 +5,7 @@ package main
 
 import (
 	// TODO: update the path below to match your own repository
-	"github.com/hashicorp/nomad-skeleton-driver-plugin/hello"
+	"github.com/Vaelatern/nomad-plugin-buildah-ci/hello"
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad/plugins"
