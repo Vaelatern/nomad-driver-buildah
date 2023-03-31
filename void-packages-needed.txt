@@ -1,0 +1,1 @@
+gpgme-devel device-mapper-devel libbtrfs-devel libostree-devel libassuan-devel libseccomp-devel

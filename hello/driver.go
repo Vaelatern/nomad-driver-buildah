@@ -13,6 +13,10 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/containers/buildah/define"
+	"github.com/containers/buildah/imagebuildah"
+	"github.com/containers/storage"
+	"github.com/containers/storage/pkg/unshare"
 	"github.com/hashicorp/consul-template/signals"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad/drivers/shared/eventer"
@@ -27,11 +31,11 @@ const (
 	// pluginName is the name of the plugin
 	// this is used for logging and (along with the version) for uniquely
 	// identifying plugin binaries fingerprinted by the client
-	pluginName = "hello-world-example"
+	pluginName = "buildah-ci"
 
 	// pluginVersion allows the client to identify and use newer versions of
 	// an installed plugin
-	pluginVersion = "v0.1.0"
+	pluginVersion = "v0.0.1"
 
 	// fingerprintPeriod is the interval at which the plugin will send
 	// fingerprint responses
@@ -136,7 +140,8 @@ type TaskConfig struct {
 	// This struct is the decoded version of the schema defined in the
 	// taskConfigSpec variable above. It's used to convert the string
 	// configuration for the task into Go contructs.
-	Greeting string `codec:"greeting"`
+	Greeting   string `codec:"greeting"`
+	Dockerfile string `codec:"dockerfile"`
 }
 
 // TaskState is the runtime state which is encoded in the handle returned to
@@ -393,6 +398,21 @@ func (d *HelloDriverPlugin) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHan
 		pluginClient.Kill()
 		return nil, nil, fmt.Errorf("failed to launch command with executor: %v", err)
 	}
+
+	// BUILDAH
+
+	options, err := storage.DefaultStoreOptions(unshare.GetRootlessUID() > 0, unshare.GetRootlessUID())
+	if err != nil {
+		return nil, nil, err
+	}
+
+	buildahStore, err := storage.GetStore(options)
+	if err != nil {
+		return nil, nil, err
+	}
+	imagebuildah.BuildDockerfiles(context.TODO(), buildahStore, define.BuildOptions{}, "Dockerfile")
+
+	// DONE WITH BUILDAH
 
 	h := &taskHandle{
 		exec:         exec,

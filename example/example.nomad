@@ -7,7 +7,7 @@ job "example" {
 
   group "example" {
     task "hello-world" {
-      driver = "hello-world-example"
+      driver = "buildah-ci"
 
       config {
         greeting = "hello"
