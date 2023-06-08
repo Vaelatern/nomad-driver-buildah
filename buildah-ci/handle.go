@@ -1,17 +1,14 @@
 // Copyright (c) HashiCorp, Inc.
 // SPDX-License-Identifier: MPL-2.0
 
-package hello
+package buildah_ci
 
 import (
-	"context"
 	"strconv"
 	"sync"
 	"time"
 
 	"github.com/hashicorp/go-hclog"
-	"github.com/hashicorp/go-plugin"
-	"github.com/hashicorp/nomad/drivers/shared/executor"
 	"github.com/hashicorp/nomad/plugins/drivers"
 )
 
@@ -22,14 +19,12 @@ type taskHandle struct {
 	// stateLock syncs access to all fields below
 	stateLock sync.RWMutex
 
-	logger       hclog.Logger
-	exec         executor.Executor
-	pluginClient *plugin.Client
-	taskConfig   *drivers.TaskConfig
-	procState    drivers.TaskState
-	startedAt    time.Time
-	completedAt  time.Time
-	exitResult   *drivers.ExitResult
+	logger      hclog.Logger
+	taskConfig  *drivers.TaskConfig
+	procState   drivers.TaskState
+	startedAt   time.Time
+	completedAt time.Time
+	exitResult  *drivers.ExitResult
 
 	// TODO: add any extra relevant information about the task.
 	pid int
@@ -65,19 +60,19 @@ func (h *taskHandle) run() {
 	}
 	h.stateLock.Unlock()
 
-	// TODO: wait for your task to complete and upate its state.
-	ps, err := h.exec.Wait(context.Background())
-	h.stateLock.Lock()
-	defer h.stateLock.Unlock()
+	//// TODO: wait for your task to complete and upate its state.
+	//ps, err := nil, nil h.exec.Wait(context.Background())
+	//h.stateLock.Lock()
+	//defer h.stateLock.Unlock()
 
-	if err != nil {
-		h.exitResult.Err = err
-		h.procState = drivers.TaskStateUnknown
-		h.completedAt = time.Now()
-		return
-	}
-	h.procState = drivers.TaskStateExited
-	h.exitResult.ExitCode = ps.ExitCode
-	h.exitResult.Signal = ps.Signal
-	h.completedAt = ps.Time
+	//if err != nil {
+	//	h.exitResult.Err = err
+	//	h.procState = drivers.TaskStateUnknown
+	//	h.completedAt = time.Now()
+	//	return
+	//}
+	//h.procState = drivers.TaskStateExited
+	//h.exitResult.ExitCode = ps.ExitCode
+	//h.exitResult.Signal = ps.Signal
+	//h.completedAt = ps.Time
 }

@@ -1,4 +1,4 @@
-PLUGIN_BINARY=hello-driver
+PLUGIN_BINARY=nomad-driver-buildah-ci
 export GO111MODULE=on
 
 default: build

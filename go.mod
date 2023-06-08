@@ -1,5 +1,4 @@
-// TODO: update the module path below to match your own repository
-module github.com/Vaelatern/nomad-plugin-buildah-ci
+module github.com/Vaelatern/nomad-driver-buildah-ci
 
 go 1.19
 
