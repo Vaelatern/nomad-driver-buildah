@@ -107,7 +107,7 @@ var (
 		// https://godoc.org/github.com/hashicorp/nomad/plugins/drivers#Capabilities
 		SendSignals: false,
 		Exec:        false,
-		FSIsolation: "chroot",
+		FSIsolation: drivers.FSIsolationImage,
 	}
 )
 
