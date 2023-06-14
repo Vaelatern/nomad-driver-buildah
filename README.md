@@ -82,3 +82,18 @@ Code Organization
 Follow the comments marked with a `TODO` tag to implement your driver's logic.
 For more information check the
 [Nomad documentation on plugins](https://www.nomadproject.io/docs/internals/plugins/index.html).
+
+What this plugin doesn't do
+---------------------------
+
+We are not going to handle every possible way you have of running a container.
+
+We are not going to handle running containers other than to execute a series of steps with some output at the end
+
+We are not going to support skipping the final commit of a container, even if it's garbage
+
+We are not going to support all the ways a build can be tagged and pushed to a server. Only authentication-free pushes to an OCI registry MAY be supported. Use lifecycle tasks to achieve various uploads.
+
+We are not going to push artifacts, other than to allow them to exist in the allocation directory. Use lifecycle tasks to achieve various uploads.
+
+We are not going to support downloading your repository. Use a lifecycle task.
