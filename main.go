@@ -4,7 +4,7 @@
 package main
 
 import (
-	buildah_ci "github.com/Vaelatern/nomad-driver-buildah-ci/buildah-ci"
+	"github.com/vaelatern/nomad-driver-buildah/buildah"
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad/plugins"
@@ -17,5 +17,5 @@ func main() {
 
 // factory returns a new instance of a nomad driver plugin
 func factory(log hclog.Logger) interface{} {
-	return buildah_ci.NewPlugin(log)
+	return buildah.NewPlugin(log)
 }

@@ -1,4 +1,4 @@
-module github.com/Vaelatern/nomad-driver-buildah-ci
+module github.com/vaelatern/nomad-driver-buildah
 
 go 1.19
 

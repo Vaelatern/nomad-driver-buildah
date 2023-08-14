@@ -1,7 +1,7 @@
 // Copyright (c) HashiCorp, Inc.
 // SPDX-License-Identifier: MPL-2.0
 
-package buildah_ci
+package buildah
 
 import (
 	"context"
@@ -25,7 +25,7 @@ const (
 	// pluginName is the name of the plugin
 	// this is used for logging and (along with the version) for uniquely
 	// identifying plugin binaries fingerprinted by the client
-	pluginName = "buildah-ci"
+	pluginName = "buildah"
 
 	// pluginVersion allows the client to identify and use newer versions of
 	// an installed plugin
@@ -147,9 +147,9 @@ type TaskState struct {
 	// method below.
 }
 
-// BuildahCIDriverPlugin is an example driver plugin. When provisioned in a job,
-// the taks will output a greet specified by the user.
-type BuildahCIDriverPlugin struct {
+// Plugin provides the container for the entire plugin, as well
+// as its attached resources.
+type Plugin struct {
 	// eventer is used to handle multiplexing of TaskEvents calls such that an
 	// event can be broadcast to all callers
 	eventer *eventer.Eventer
@@ -180,7 +180,7 @@ func NewPlugin(logger hclog.Logger) drivers.DriverPlugin {
 	ctx, cancel := context.WithCancel(context.Background())
 	logger = logger.Named(pluginName)
 
-	return &BuildahCIDriverPlugin{
+	return &Plugin{
 		eventer:        eventer.NewEventer(ctx, logger),
 		config:         &Config{},
 		tasks:          newTaskStore(),
@@ -191,17 +191,17 @@ func NewPlugin(logger hclog.Logger) drivers.DriverPlugin {
 }
 
 // PluginInfo returns information describing the plugin.
-func (d *BuildahCIDriverPlugin) PluginInfo() (*base.PluginInfoResponse, error) {
+func (p *Plugin) PluginInfo() (*base.PluginInfoResponse, error) {
 	return pluginInfo, nil
 }
 
 // ConfigSchema returns the plugin configuration schema.
-func (d *BuildahCIDriverPlugin) ConfigSchema() (*hclspec.Spec, error) {
+func (p *Plugin) ConfigSchema() (*hclspec.Spec, error) {
 	return configSpec, nil
 }
 
 // SetConfig is called by the client to pass the configuration for the plugin.
-func (d *BuildahCIDriverPlugin) SetConfig(cfg *base.Config) error {
+func (p *Plugin) SetConfig(cfg *base.Config) error {
 	var config Config
 	if len(cfg.PluginConfig) != 0 {
 		if err := base.MsgPackDecode(cfg.PluginConfig, &config); err != nil {
@@ -210,7 +210,7 @@ func (d *BuildahCIDriverPlugin) SetConfig(cfg *base.Config) error {
 	}
 
 	// Save the configuration to the plugin
-	d.config = &config
+	p.config = &config
 
 	// Parse and validated any configuration value if necessary.
 	//
@@ -221,7 +221,7 @@ func (d *BuildahCIDriverPlugin) SetConfig(cfg *base.Config) error {
 
 	// Save the Nomad agent configuration
 	if cfg.AgentConfig != nil {
-		d.nomadConfig = cfg.AgentConfig.Driver
+		p.nomadConfig = cfg.AgentConfig.Driver
 	}
 
 	// TODO: initialize any extra requirements if necessary.
@@ -233,25 +233,25 @@ func (d *BuildahCIDriverPlugin) SetConfig(cfg *base.Config) error {
 }
 
 // TaskConfigSchema returns the HCL schema for the configuration of a task.
-func (d *BuildahCIDriverPlugin) TaskConfigSchema() (*hclspec.Spec, error) {
+func (p *Plugin) TaskConfigSchema() (*hclspec.Spec, error) {
 	return taskConfigSpec, nil
 }
 
 // Capabilities returns the features supported by the driver.
-func (d *BuildahCIDriverPlugin) Capabilities() (*drivers.Capabilities, error) {
+func (p *Plugin) Capabilities() (*drivers.Capabilities, error) {
 	return capabilities, nil
 }
 
 // Fingerprint returns a channel that will be used to send health information
 // and other driver specific node attributes.
-func (d *BuildahCIDriverPlugin) Fingerprint(ctx context.Context) (<-chan *drivers.Fingerprint, error) {
+func (p *Plugin) Fingerprint(ctx context.Context) (<-chan *drivers.Fingerprint, error) {
 	ch := make(chan *drivers.Fingerprint)
-	go d.handleFingerprint(ctx, ch)
+	go p.handleFingerprint(ctx, ch)
 	return ch, nil
 }
 
 // handleFingerprint manages the channel and the flow of fingerprint data.
-func (d *BuildahCIDriverPlugin) handleFingerprint(ctx context.Context, ch chan<- *drivers.Fingerprint) {
+func (p *Plugin) handleFingerprint(ctx context.Context, ch chan<- *drivers.Fingerprint) {
 	defer close(ch)
 
 	// Nomad expects the initial fingerprint to be sent immediately
@@ -260,19 +260,19 @@ func (d *BuildahCIDriverPlugin) handleFingerprint(ctx context.Context, ch chan<-
 		select {
 		case <-ctx.Done():
 			return
-		case <-d.ctx.Done():
+		case <-p.ctx.Done():
 			return
 		case <-ticker.C:
 			// after the initial fingerprint we can set the proper fingerprint
 			// period
 			ticker.Reset(fingerprintPeriod)
-			ch <- d.buildFingerprint()
+			ch <- p.buildFingerprint()
 		}
 	}
 }
 
 // buildFingerprint returns the driver's fingerprint data
-func (d *BuildahCIDriverPlugin) buildFingerprint() *drivers.Fingerprint {
+func (p *Plugin) buildFingerprint() *drivers.Fingerprint {
 	fp := &drivers.Fingerprint{
 		Attributes:        map[string]*structs.Attribute{},
 		Health:            drivers.HealthStateHealthy,
@@ -297,8 +297,8 @@ func (d *BuildahCIDriverPlugin) buildFingerprint() *drivers.Fingerprint {
 }
 
 // StartTask returns a task handle and a driver network if necessary.
-func (d *BuildahCIDriverPlugin) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drivers.DriverNetwork, error) {
-	if _, ok := d.tasks.Get(cfg.ID); ok {
+func (p *Plugin) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drivers.DriverNetwork, error) {
+	if _, ok := p.tasks.Get(cfg.ID); ok {
 		return nil, nil, fmt.Errorf("task with ID %q already started", cfg.ID)
 	}
 
@@ -307,7 +307,7 @@ func (d *BuildahCIDriverPlugin) StartTask(cfg *drivers.TaskConfig) (*drivers.Tas
 		return nil, nil, fmt.Errorf("failed to decode driver config: %v", err)
 	}
 
-	d.logger.Info("starting task", "driver_cfg", hclog.Fmt("%+v", driverConfig))
+	p.logger.Info("starting task", "driver_cfg", hclog.Fmt("%+v", driverConfig))
 	handle := drivers.NewTaskHandle(taskHandleVersion)
 	handle.Config = cfg
 
@@ -342,7 +342,7 @@ func (d *BuildahCIDriverPlugin) StartTask(cfg *drivers.TaskConfig) (*drivers.Tas
 		taskConfig: cfg,
 		procState:  drivers.TaskStateRunning,
 		startedAt:  time.Now().Round(time.Millisecond),
-		logger:     d.logger,
+		logger:     p.logger,
 	}
 
 	driverState := TaskState{
@@ -354,18 +354,18 @@ func (d *BuildahCIDriverPlugin) StartTask(cfg *drivers.TaskConfig) (*drivers.Tas
 		return nil, nil, fmt.Errorf("failed to set driver state: %v", err)
 	}
 
-	d.tasks.Set(cfg.ID, h)
+	p.tasks.Set(cfg.ID, h)
 	go h.run()
 	return handle, nil, nil
 }
 
 // RecoverTask recreates the in-memory state of a task from a TaskHandle.
-func (d *BuildahCIDriverPlugin) RecoverTask(handle *drivers.TaskHandle) error {
+func (p *Plugin) RecoverTask(handle *drivers.TaskHandle) error {
 	if handle == nil {
 		return errors.New("error: handle cannot be nil")
 	}
 
-	if _, ok := d.tasks.Get(handle.Config.ID); ok {
+	if _, ok := p.tasks.Get(handle.Config.ID); ok {
 		return nil
 	}
 
@@ -393,14 +393,14 @@ func (d *BuildahCIDriverPlugin) RecoverTask(handle *drivers.TaskHandle) error {
 		exitResult: &drivers.ExitResult{},
 	}
 
-	d.tasks.Set(taskState.TaskConfig.ID, h)
+	p.tasks.Set(taskState.TaskConfig.ID, h)
 
 	go h.run()
 	return nil
 }
 
 // WaitTask returns a channel used to notify Nomad when a task exits.
-func (d *BuildahCIDriverPlugin) WaitTask(ctx context.Context, taskID string) (<-chan *drivers.ExitResult, error) {
+func (p *Plugin) WaitTask(ctx context.Context, taskID string) (<-chan *drivers.ExitResult, error) {
 	//handle, ok := d.tasks.Get(taskID)
 	//if !ok {
 	//	return nil, drivers.ErrTaskNotFound
@@ -412,7 +412,7 @@ func (d *BuildahCIDriverPlugin) WaitTask(ctx context.Context, taskID string) (<-
 }
 
 // StopTask stops a running task with the given signal and within the timeout window.
-func (d *BuildahCIDriverPlugin) StopTask(taskID string, timeout time.Duration, signal string) error {
+func (p *Plugin) StopTask(taskID string, timeout time.Duration, signal string) error {
 	//handle, ok := d.tasks.Get(taskID)
 	//if !ok {
 	//	return drivers.ErrTaskNotFound
@@ -432,8 +432,8 @@ func (d *BuildahCIDriverPlugin) StopTask(taskID string, timeout time.Duration, s
 }
 
 // DestroyTask cleans up and removes a task that has terminated.
-func (d *BuildahCIDriverPlugin) DestroyTask(taskID string, force bool) error {
-	handle, ok := d.tasks.Get(taskID)
+func (p *Plugin) DestroyTask(taskID string, force bool) error {
+	handle, ok := p.tasks.Get(taskID)
 	if !ok {
 		return drivers.ErrTaskNotFound
 	}
@@ -451,13 +451,13 @@ func (d *BuildahCIDriverPlugin) DestroyTask(taskID string, force bool) error {
 	// In the example below we use the executor to force shutdown the task
 	// (timeout equals 0).
 
-	d.tasks.Delete(taskID)
+	p.tasks.Delete(taskID)
 	return nil
 }
 
 // InspectTask returns detailed status information for the referenced taskID.
-func (d *BuildahCIDriverPlugin) InspectTask(taskID string) (*drivers.TaskStatus, error) {
-	handle, ok := d.tasks.Get(taskID)
+func (p *Plugin) InspectTask(taskID string) (*drivers.TaskStatus, error) {
+	handle, ok := p.tasks.Get(taskID)
 	if !ok {
 		return nil, drivers.ErrTaskNotFound
 	}
@@ -466,7 +466,7 @@ func (d *BuildahCIDriverPlugin) InspectTask(taskID string) (*drivers.TaskStatus,
 }
 
 // TaskStats returns a channel which the driver should send stats to at the given interval.
-func (d *BuildahCIDriverPlugin) TaskStats(ctx context.Context, taskID string, interval time.Duration) (<-chan *drivers.TaskResourceUsage, error) {
+func (p *Plugin) TaskStats(ctx context.Context, taskID string, interval time.Duration) (<-chan *drivers.TaskResourceUsage, error) {
 	// TODO: implement driver specific logic to send task stats.
 	//
 	// This function returns a channel that Nomad will use to listen for task
@@ -479,13 +479,13 @@ func (d *BuildahCIDriverPlugin) TaskStats(ctx context.Context, taskID string, in
 }
 
 // TaskEvents returns a channel that the plugin can use to emit task related events.
-func (d *BuildahCIDriverPlugin) TaskEvents(ctx context.Context) (<-chan *drivers.TaskEvent, error) {
-	return d.eventer.TaskEvents(ctx)
+func (p *Plugin) TaskEvents(ctx context.Context) (<-chan *drivers.TaskEvent, error) {
+	return p.eventer.TaskEvents(ctx)
 }
 
 // SignalTask forwards a signal to a task.
 // This is an optional capability.
-func (d *BuildahCIDriverPlugin) SignalTask(taskID string, signal string) error {
+func (p *Plugin) SignalTask(taskID string, signal string) error {
 	// TODO: implement driver specific signal handling logic.
 	//
 	// The given signal must be forwarded to the target taskID. If this plugin
@@ -496,7 +496,7 @@ func (d *BuildahCIDriverPlugin) SignalTask(taskID string, signal string) error {
 
 // ExecTask returns the result of executing the given command inside a task.
 // This is an optional capability.
-func (d *BuildahCIDriverPlugin) ExecTask(taskID string, cmd []string, timeout time.Duration) (*drivers.ExecTaskResult, error) {
+func (p *Plugin) ExecTask(taskID string, cmd []string, timeout time.Duration) (*drivers.ExecTaskResult, error) {
 	// TODO: implement driver specific logic to execute commands in a task.
 	return nil, errors.New("This driver does not support exec")
 }
