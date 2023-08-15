@@ -7,7 +7,7 @@ job "build-mdbook-d2-go" {
     task "this-is-the-build-task" {
       driver = "buildah-ci"
       config {
-	dockerfile = "Dockerfile"
+	containerfile = "Dockerfile"
       }
       artifact {
         source = "https://github.com/Vaelatern/mdbook-d2-go/archive/refs/heads/master.tar.gz"
